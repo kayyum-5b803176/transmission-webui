@@ -1,0 +1,281 @@
+/* ==========================================================
+   Transmission Web UI — Custom Enhancements
+   Layered on top of transmission-app.css (branch 4.1.x).
+   Do not modify transmission-app.css directly; patch here.
+   ========================================================== */
+
+
+/* ── Thin scrollbar for the torrent list ───────────────────────── */
+
+#torrent-container::-webkit-scrollbar        { width: 5px; }
+#torrent-container::-webkit-scrollbar-track  { background: transparent; }
+#torrent-container::-webkit-scrollbar-thumb  { background-color: var(--color-border-default); border-radius: 3px; }
+#torrent-container { scrollbar-width: thin; scrollbar-color: var(--color-border-default) transparent; }
+
+
+/* ── Smooth background transitions on torrent rows ─────────────── */
+
+#torrent-list .torrent { transition: background-color 0.1s ease; }
+
+
+/* ── Slightly rounder, shorter progress bar ────────────────────── */
+
+#torrent-list .torrent-progress-bar { border-radius: 4px; height: 16px; }
+#torrent-list .torrent-progress-bar::before,
+#torrent-list .torrent-progress-bar::after { border-radius: 4px; }
+
+
+/* ── Toolbar button hover highlight ────────────────────────────── */
+
+#mainwin-toolbar button:not(:disabled):hover { background-color: var(--default-tinted); border-radius: 6px; }
+
+
+/* ── Styled search input ───────────────────────────────────────── */
+
+#torrent-search {
+  border: 1px solid var(--color-border-default); border-radius: 4px;
+  background: var(--color-bg-primary); color: var(--color-fg-primary);
+  padding: 2px 6px; font-size: 13px; transition: outline 0.1s ease;
+}
+#torrent-search:focus { outline: 2px solid var(--blue-300); outline-offset: -1px; }
+
+
+/* ── Styled filter selects ─────────────────────────────────────── */
+
+#mainwin-statusbar select {
+  border: 1px solid var(--color-border-default); border-radius: 4px;
+  background: var(--color-bg-primary); color: var(--color-fg-primary);
+  font-size: 13px; padding: 1px 2px;
+}
+
+
+/* ── Tabular digits for speed readouts ─────────────────────────── */
+
+#speed-down, #speed-up { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 70px; white-space: nowrap; }
+
+
+/* ── Speed sparkline canvas ────────────────────────────────────── */
+
+#custom-speed-graph { align-self: center; border-radius: 3px; margin: 0 4px; opacity: 0.8; flex-shrink: 0; }
+@media (width < 600px) { #custom-speed-graph { display: none; } }
+
+
+/* ── Error peer-details: bold for visibility ───────────────────── */
+
+#torrent-list .torrent .torrent-peer-details.error { font-weight: 600; }
+
+
+/* ── Label pills: subtle blue tint ────────────────────────────── */
+
+.torrent-label {
+  background-color: color-mix(in srgb, var(--blue-300) 12%, transparent);
+  border-color:     color-mix(in srgb, var(--blue-300) 35%, transparent);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   QUICK RELOCATE PATHS — all styles prefixed .qp-
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Quick-path row injected into the move dialog ──────────────── */
+
+.qp-select-row {
+  align-items: center;
+  background: color-mix(in srgb, var(--blue-300) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue-300) 28%, transparent);
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+}
+
+.qp-select-label {
+  color: var(--color-fg-secondary);
+  flex-shrink: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.qp-move-select {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  color: var(--color-fg-primary);
+  flex: 1;
+  font-size: 13px;
+  min-width: 160px;
+  padding: 3px 6px;
+}
+.qp-move-select:focus { outline: 2px solid var(--blue-300); outline-offset: -1px; }
+
+
+/* ── Shared button style ───────────────────────────────────────── */
+
+.qp-btn {
+  appearance: none;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 5px;
+  color: var(--color-fg-primary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+.qp-btn:hover:not(:disabled) { background: var(--color-bg-hover); }
+
+.qp-btn-sm { font-size: 12px; padding: 2px 8px; }
+
+.qp-btn-primary { background: var(--blue-300); border-color: var(--blue-400); color: #fff; }
+.qp-btn-primary:hover { background: var(--blue-400); }
+
+.qp-btn-danger { border-color: color-mix(in srgb, var(--red-500) 60%, transparent); color: var(--red-500); }
+.qp-btn-danger:hover { background: color-mix(in srgb, var(--red-500) 12%, transparent); }
+
+
+/* ── Shared input style ────────────────────────────────────────── */
+
+.qp-input {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--color-fg-primary);
+  font-size: 13px;
+  padding: 5px 8px;
+  width: 100%;
+}
+.qp-input:focus { outline: 2px solid var(--blue-300); outline-offset: -1px; }
+.qp-path-input { font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; }
+
+
+/* ── Path manager dialog ───────────────────────────────────────── */
+
+.qp-manager {
+  background: var(--color-bg-popup);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.24);
+  color: var(--color-fg-on-popup);
+  max-height: calc(100dvh - 64px);
+  max-width: 600px;
+  overflow: hidden;
+  padding: 0;
+  width: calc(100vw - 32px);
+}
+.qp-manager::backdrop { background: rgba(0,0,0,0.45); }
+
+.qp-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 64px);
+}
+
+/* Header */
+.qp-header {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+}
+.qp-header-title { font-size: 15px; font-weight: 600; }
+.qp-header-subtitle { color: var(--color-fg-secondary); font-size: 12px; margin-top: 2px; }
+.qp-close {
+  background: none; border: none; border-radius: 5px;
+  color: var(--color-fg-secondary); cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 3px 7px;
+}
+.qp-close:hover { background: var(--color-bg-hover); color: var(--color-fg-primary); }
+
+/* Scrollable path list */
+.qp-list {
+  flex: 1;
+  max-height: 340px;
+  min-height: 80px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+.qp-list::-webkit-scrollbar       { width: 5px; }
+.qp-list::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 3px; }
+
+.qp-empty {
+  color: var(--color-fg-tertiary);
+  font-size: 13px;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+/* Each path row */
+.qp-path-row { border-bottom: 1px solid var(--color-border-default); }
+.qp-path-row:last-child { border-bottom: none; }
+
+.qp-row-display {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 120px 1fr auto auto;
+  padding: 8px 16px;
+}
+.qp-row-display:hover { background: var(--color-bg-hover); }
+
+.qp-row-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qp-row-path {
+  color: var(--color-fg-secondary);
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qp-row-edit {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 120px 1fr auto auto;
+  padding: 8px 16px;
+}
+
+.qp-hidden { display: none !important; }
+
+/* Add-path form at the bottom */
+.qp-add-form {
+  border-top: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 20px 16px;
+}
+
+.qp-section-label {
+  color: var(--color-fg-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.qp-add-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.qp-add-row .qp-input:first-child { flex: 0 0 120px; }
+.qp-add-row .qp-input:last-of-type { flex: 1; }
+
+
+/* ── Overflow menu quick-paths section ─────────────────────────── */
+
+.qp-overflow-section { margin-top: 4px; }
+.qp-overflow-section button {
+  background: transparent; border: 0; color: var(--color-fg-primary);
+  cursor: pointer; display: block; font-size: 1em;
+  padding: 4px 0; text-align: left; width: 100%;
+}
+.qp-overflow-section button:hover { text-decoration: underline; }
