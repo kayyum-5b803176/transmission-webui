@@ -1,21 +1,5 @@
 /* ==========================================================
    Transmission Web UI — Custom Enhancements  (custom.js)
-   Works alongside the unmodified transmission-app.js bundle.
-
-   Features
-   ────────
-   1.  Live download/upload sparkline in the statusbar
-   2.  Dynamic page title (torrent count + current speeds)
-   3.  Quick Relocate Paths — move-dialog dropdown (label only)
-       & Manage CRUD dialog
-   4.  Overflow menu "Quick Relocate" one-click section
-   5.  Path-label chips auto-injected on each torrent row  (purple)
-   6.  "Show" filter dropdown — filter by path label
-   7.  Category Types Store — subfolder names appended to a base path
-   8.  Move dialog "Type" row — combine quick path + type → full dest
-   9.  Overflow menu "Relocate with Type" two-step section
-   10. Type chips on torrent rows  (teal)
-   11. "Type" filter dropdown in statusbar
    ========================================================== */
 
 (function () {
@@ -30,7 +14,6 @@
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-
   function shake(el) {
     if (!el) return;
     el.style.transition = 'transform 0.08s ease';
@@ -39,21 +22,17 @@
     setTimeout(() => { el.style.transform = ''; }, 160);
     el.focus?.();
   }
-
-  /** Join base path + subfolder safely, collapsing duplicate slashes. */
   function joinPath(base, sub) {
     if (!sub) return base;
     return base.replace(/\/?$/, '/') + sub.replace(/^\/+/, '');
   }
-
-  /** Extract torrent download_dir from a DOM <li> row element. */
   function getDir(el) {
     return el?.row?.getTorrent?.()?.getDownloadDir?.() || '';
   }
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 1 — QUICK PATH STORE  (full absolute paths)
+     SECTION 1 — QUICK PATH STORE
      ═══════════════════════════════════════════════════════════════ */
 
   const QPS = (() => {
@@ -71,6 +50,7 @@
       add:      (name, path)     => { const a = load(); a.push({ id: uid(), name: name.trim(), path: path.trim() }); save(a); },
       update:   (id, name, path) => { save(load().map(e => e.id===id ? { id, name: name.trim(), path: path.trim() } : e)); },
       remove:   (id)             => { save(load().filter(e => e.id!==id)); },
+      /** Exact match first, then prefix match (dir starts with path+'/') */
       matchDir: (dir) => {
         if (!dir) return null;
         const all = load();
@@ -83,7 +63,7 @@
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 2 — CATEGORY TYPE STORE  (subfolder names only)
+     SECTION 2 — CATEGORY TYPE STORE
      ═══════════════════════════════════════════════════════════════ */
 
   const CTS = (() => {
@@ -98,22 +78,16 @@
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
     return {
       getAll:   ()                    => load(),
-      add:      (name, subfolder)     => { const a = load(); a.push({ id: uid(), name: name.trim(), subfolder: subfolder.trim().replace(/^\/+|\/+$/g,'') }); save(a); },
-      update:   (id, name, subfolder) => { save(load().map(e => e.id===id ? { id, name: name.trim(), subfolder: subfolder.trim().replace(/^\/+|\/+$/g,'') } : e)); },
+      add:      (name, sub)           => { const a = load(); a.push({ id: uid(), name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') }); save(a); },
+      update:   (id, name, sub)       => { save(load().map(e => e.id===id ? { id, name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') } : e)); },
       remove:   (id)                  => { save(load().filter(e => e.id!==id)); },
-      /**
-       * Match a download_dir against known types.
-       * Looks for an entry whose subfolder appears as the last
-       * path segment(s) of dir.
-       */
+      /** Match dir's last segment(s) against known subfolders */
       matchDir: (dir) => {
         if (!dir) return null;
-        const all = load();
         const norm = dir.replace(/\/+$/,'');
-        return all.find(t => {
+        return CTS.getAll().find(t => {
           const sub = t.subfolder.replace(/\/+$/,'');
-          return norm === sub ||
-                 norm.endsWith('/' + sub);
+          return norm === sub || norm.endsWith('/'+sub);
         }) || null;
       },
     };
@@ -122,18 +96,6 @@
 
   /* ═══════════════════════════════════════════════════════════════
      SECTION 3 — GENERIC CRUD MANAGER DIALOG
-     Reused by both Quick Paths and Category Types.
-     config = {
-       dialogId, title, subtitle,
-       storeName,           // 'path' | 'type'
-       col1Label,           // 'Label'
-       col2Label,           // 'Path' | 'Subfolder'
-       col2Placeholder,     // e.g. '/downloads/movies' | 'movies'
-       col2Monospace,       // bool
-       store,               // QPS or CTS
-       col2Key,             // 'path' | 'subfolder'
-       eventName,           // 'qps:changed' | 'cts:changed'
-     }
      ═══════════════════════════════════════════════════════════════ */
 
   function openManagerDialog(config) {
@@ -172,7 +134,7 @@
     document.body.append(dlg);
 
     function renderList() {
-      const list = dlg.querySelector('#qp-item-list');
+      const list  = dlg.querySelector('#qp-item-list');
       const items = config.store.getAll();
       if (items.length === 0) {
         list.innerHTML = `<div class="qp-empty">No ${config.storeName}s yet. Add one below.</div>`;
@@ -180,7 +142,7 @@
       }
       list.innerHTML = '';
       for (const entry of items) {
-        const col2val = entry[config.col2Key];
+        const v2  = entry[config.col2Key];
         const row = document.createElement('div');
         row.className  = 'qp-path-row';
         row.dataset.id = entry.id;
@@ -188,7 +150,7 @@
           <div class="qp-row-display" data-view="${entry.id}">
             <span class="qp-row-name"  title="${escHtml(entry.name)}">${escHtml(entry.name)}</span>
             <span class="qp-row-path${config.col2Monospace ? ' qp-mono' : ''}"
-                  title="${escHtml(col2val)}">${escHtml(col2val)}</span>
+                  title="${escHtml(v2)}">${escHtml(v2)}</span>
             <button class="qp-btn qp-btn-sm" data-edit="${entry.id}">Edit</button>
             <button class="qp-btn qp-btn-sm qp-btn-danger" data-del="${entry.id}">Delete</button>
           </div>
@@ -196,7 +158,7 @@
             <input class="qp-input" value="${escHtml(entry.name)}"
               maxlength="40" data-edit-name="${entry.id}" />
             <input class="qp-input${config.col2Monospace ? ' qp-path-input' : ''}"
-              value="${escHtml(col2val)}" data-edit-col2="${entry.id}" />
+              value="${escHtml(v2)}" data-edit-col2="${entry.id}" />
             <button class="qp-btn qp-btn-primary qp-btn-sm" data-save="${entry.id}">Save</button>
             <button class="qp-btn qp-btn-sm" data-cancel="${entry.id}">Cancel</button>
           </div>`;
@@ -223,72 +185,58 @@
         return;
       }
       if (t.dataset.save) {
-        const nameEl = dlg.querySelector(`[data-edit-name="${id}"]`);
-        const col2El = dlg.querySelector(`[data-edit-col2="${id}"]`);
-        const name   = nameEl.value.trim();
-        const col2   = col2El.value.trim();
-        if (!name || !col2) { shake(!name ? nameEl : col2El); return; }
-        config.store.update(id, name, col2);
-        return;   // renderList called via eventName listener
+        const nEl = dlg.querySelector(`[data-edit-name="${id}"]`);
+        const cEl = dlg.querySelector(`[data-edit-col2="${id}"]`);
+        if (!nEl.value.trim() || !cEl.value.trim()) { shake(!nEl.value.trim() ? nEl : cEl); return; }
+        config.store.update(id, nEl.value, cEl.value);
+        return;
       }
-      if (t.dataset.del) { config.store.remove(id); }
+      if (t.dataset.del) config.store.remove(id);
     });
 
     const nameEl = dlg.querySelector('#qp-new-name');
     const col2El = dlg.querySelector('#qp-new-col2');
     dlg.querySelector('#qp-add-btn').addEventListener('click', () => {
-      const name = nameEl.value.trim(), col2 = col2El.value.trim();
-      if (!name || !col2) { shake(!name ? nameEl : col2El); return; }
-      config.store.add(name, col2);
+      if (!nameEl.value.trim() || !col2El.value.trim()) { shake(!nameEl.value.trim() ? nameEl : col2El); return; }
+      config.store.add(nameEl.value, col2El.value);
       nameEl.value = ''; col2El.value = '';
       nameEl.focus();
     });
     [nameEl, col2El].forEach(el => {
-      el.addEventListener('keydown', e => { if (e.key === 'Enter') dlg.querySelector('#qp-add-btn').click(); });
+      el.addEventListener('keydown', e => { if (e.key==='Enter') dlg.querySelector('#qp-add-btn').click(); });
     });
 
-    const cleanup = () => { window.removeEventListener(config.eventName, renderList); };
+    const cleanup = () => window.removeEventListener(config.eventName, renderList);
     dlg.querySelector('#qp-close-btn').addEventListener('click', () => { cleanup(); dlg.close(); dlg.remove(); });
-    dlg.addEventListener('click', e => { if (e.target === dlg) { cleanup(); dlg.close(); dlg.remove(); } });
+    dlg.addEventListener('click', e => { if (e.target===dlg) { cleanup(); dlg.close(); dlg.remove(); } });
     dlg.showModal();
     nameEl.focus();
   }
 
   const openPathManager = () => openManagerDialog({
-    dialogId:        'qp-manager-dialog',
-    title:           'Quick Relocate Paths',
-    subtitle:        'Full absolute paths. Appear as labels in the relocate dropdown, row chips, and Show filter.',
-    storeName:       'path',
-    col1Label:       'Label',
-    col2Label:       'Full path',
-    col2Placeholder: '/downloads/archive',
-    col2Monospace:   true,
-    store:           QPS,
-    col2Key:         'path',
-    eventName:       'qps:changed',
+    dialogId:'qp-manager-dialog', title:'Quick Relocate Paths',
+    subtitle:'Full absolute paths — appear as labels in the move dialog, chips, and Path filter.',
+    storeName:'path', col1Label:'Label', col2Label:'Full path',
+    col2Placeholder:'/downloads/archive', col2Monospace:true,
+    store:QPS, col2Key:'path', eventName:'qps:changed',
   });
 
   const openTypeManager = () => openManagerDialog({
-    dialogId:        'ct-manager-dialog',
-    title:           'Category Types',
-    subtitle:        'Subfolder names appended to the selected quick path when relocating.',
-    storeName:       'type',
-    col1Label:       'Label',
-    col2Label:       'Subfolder',
-    col2Placeholder: 'movies',
-    col2Monospace:   true,
-    store:           CTS,
-    col2Key:         'subfolder',
-    eventName:       'cts:changed',
+    dialogId:'ct-manager-dialog', title:'Category Types',
+    subtitle:'Subfolder names appended to the selected quick path when relocating.',
+    storeName:'type', col1Label:'Label', col2Label:'Subfolder',
+    col2Placeholder:'movies', col2Monospace:true,
+    store:CTS, col2Key:'subfolder', eventName:'cts:changed',
   });
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 4 — INJECT ROWS INTO MOVE DIALOG
-     Row A: Quick Path  (label → fills full path)
-     Row B: Type        (subfolder → appended to Row A's value)
-     Final path = quickPath + '/' + typeSubfolder
-     If no quick path chosen: uses torrent's current download_dir.
+     SECTION 4 — MOVE DIALOG AUGMENTATION
+     Single bordered panel with two grid rows:
+       Path row  (purple accent) — label | dropdown | Manage…
+       Type row  (teal accent)   — label | dropdown | Manage…
+       Preview line showing resolved full destination
+     Auto-selects matching path + type from the torrent's current dir.
      ═══════════════════════════════════════════════════════════════ */
 
   function augmentMoveDialog(dialog) {
@@ -299,208 +247,130 @@
     const workarea  = dialog.querySelector('.dialog-workarea');
     if (!pathInput || !workarea) return;
 
-    /* ── Row A: Quick Path ──────────────────────────────────────── */
-    const rowA = document.createElement('div');
-    rowA.className = 'qp-select-row';
-    rowA.innerHTML = `
-      <span class="qp-select-label">Quick path:</span>
-      <select class="qp-move-select" id="qp-move-select">
-        <option value="">— choose a saved path —</option>
-      </select>
-      <button class="qp-btn qp-btn-sm" id="qp-manage-btn">Manage…</button>`;
+    // Build the single panel containing both rows
+    const panel = document.createElement('div');
+    panel.className = 'qp-dialog-panel';
+    panel.innerHTML = `
+      <div class="qp-panel-header">Quick Relocate</div>
+      <div class="qp-panel-body">
+        <div class="qp-panel-row qp-panel-row-path">
+          <span class="qp-panel-label">Path</span>
+          <select class="qp-move-select" id="qp-move-select">
+            <option value="">— choose saved path —</option>
+          </select>
+          <button class="qp-btn qp-btn-sm" id="qp-manage-btn">Manage…</button>
+        </div>
+        <div class="qp-panel-row qp-panel-row-type">
+          <span class="qp-panel-label">Type</span>
+          <select class="qp-move-select" id="qp-type-select">
+            <option value="">— none —</option>
+          </select>
+          <button class="qp-btn qp-btn-sm" id="qp-type-manage-btn">Manage…</button>
+        </div>
 
-    /* ── Row B: Category Type ───────────────────────────────────── */
-    const rowB = document.createElement('div');
-    rowB.className = 'qp-select-row qp-type-row';
-    rowB.innerHTML = `
-      <span class="qp-select-label">Type:</span>
-      <select class="qp-move-select" id="qp-type-select">
-        <option value="">— none —</option>
-      </select>
-      <span class="qp-type-preview" id="qp-type-preview"></span>
-      <button class="qp-btn qp-btn-sm" id="qp-type-manage-btn">Manage…</button>`;
+      </div>`;
 
-    workarea.insertBefore(rowA, workarea.firstChild);
-    rowA.after(rowB);
+    workarea.insertBefore(panel, workarea.firstChild);
 
-    const selA    = rowA.querySelector('#qp-move-select');
-    const selB    = rowB.querySelector('#qp-type-select');
-    const preview = rowB.querySelector('#qp-type-preview');
+    const selA    = panel.querySelector('#qp-move-select');
+    const selB    = panel.querySelector('#qp-type-select');
 
-    /* helpers */
-    function getBasePath() {
-      // Prefer what's currently in the quick-path select; fall back to
-      // whatever is already in the path input (the torrent's current dir).
-      return selA.value || pathInput.value.trim() || '';
-    }
+    /* ── Populate helpers ─────────────────────────────────────── */
 
-    function updatePathInput() {
-      const base = getBasePath();
-      const sub  = selB.value;
-      const full = sub ? joinPath(base, sub) : base;
-      if (full) {
-        pathInput.value = full;
-        pathInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      preview.textContent = sub && base ? '→ ' + full : '';
-    }
-
-    function populatePathSelect() {
-      const prev = selA.value;
+    function populatePathSelect(restore) {
+      const prev = restore ?? selA.value;
       while (selA.options.length > 1) selA.remove(1);
       for (const p of QPS.getAll()) {
-        const opt = document.createElement('option');
-        opt.value = p.path; opt.textContent = p.name; opt.title = p.path;
-        selA.append(opt);
+        const o = document.createElement('option');
+        o.value = p.path; o.textContent = p.name; o.title = p.path;
+        selA.append(o);
       }
       if (prev) for (const o of selA.options) { if (o.value===prev) { selA.value=prev; break; } }
     }
 
-    function populateTypeSelect() {
-      const prev = selB.value;
+    function populateTypeSelect(restore) {
+      const prev = restore ?? selB.value;
       while (selB.options.length > 1) selB.remove(1);
       for (const t of CTS.getAll()) {
-        const opt = document.createElement('option');
-        opt.value = t.subfolder; opt.textContent = t.name; opt.title = t.subfolder;
-        selB.append(opt);
+        const o = document.createElement('option');
+        o.value = t.subfolder; o.textContent = t.name; o.title = t.subfolder;
+        selB.append(o);
       }
       if (prev) for (const o of selB.options) { if (o.value===prev) { selB.value=prev; break; } }
-      updatePathInput();
     }
 
-    // Pre-select matching quick path from current input
-    function preselectCurrent() {
+    function updatePathInput() {
+      const base = selA.value || pathInput.value.trim() || '';
+      const sub  = selB.value;
+      const full = sub && base ? joinPath(base, sub) : base;
+      if (full) {
+        pathInput.value = full;
+        pathInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+
+    /* ── FIX 4: auto-grab path and type from current download_dir ── */
+    function preselectFromCurrentDir() {
       const cur = pathInput.value.trim();
       if (!cur) return;
-      for (const o of selA.options) { if (o.value===cur) { selA.value=cur; return; } }
+
+      // 1. Find matching quick path (exact or prefix)
+      const pathMatch = QPS.matchDir(cur);
+      if (pathMatch) {
+        selA.value = pathMatch.path;
+      }
+
+      // 2. Find matching type subfolder in the remainder of cur
+      //    e.g. cur=/downloads/archive/movies, pathMatch.path=/downloads/archive
+      //    → remainder = movies → match CTS entry with subfolder='movies'
+      const typeMatch = CTS.matchDir(cur);
+      if (typeMatch) {
+        selB.value = typeMatch.subfolder;
+      }
+
+      // 3. Rewrite path input only if we found something
+      if (pathMatch || typeMatch) updatePathInput();
     }
 
-    populatePathSelect();
-    populateTypeSelect();
-    preselectCurrent();
+    populatePathSelect('');
+    populateTypeSelect('');
+    preselectFromCurrentDir();
 
     selA.addEventListener('change', updatePathInput);
     selB.addEventListener('change', updatePathInput);
 
-    window.addEventListener('qps:changed', () => { populatePathSelect(); updatePathInput(); });
-    window.addEventListener('cts:changed', populateTypeSelect);
+    const onQPS = () => { populatePathSelect(); updatePathInput(); };
+    const onCTS = () => { populateTypeSelect(); updatePathInput(); };
+    window.addEventListener('qps:changed', onQPS);
+    window.addEventListener('cts:changed', onCTS);
 
-    const mo = new MutationObserver(() => {
+    // Cleanup listeners when dialog is removed from DOM
+    new MutationObserver(() => {
       if (!document.body.contains(dialog)) {
-        window.removeEventListener('qps:changed', populatePathSelect);
-        window.removeEventListener('cts:changed', populateTypeSelect);
-        mo.disconnect();
+        window.removeEventListener('qps:changed', onQPS);
+        window.removeEventListener('cts:changed', onCTS);
       }
-    });
-    mo.observe(document.body, { childList: true });
+    }).observe(document.body, { childList: true });
 
-    rowA.querySelector('#qp-manage-btn').addEventListener('click', openPathManager);
-    rowB.querySelector('#qp-type-manage-btn').addEventListener('click', openTypeManager);
+    panel.querySelector('#qp-manage-btn').addEventListener('click', openPathManager);
+    panel.querySelector('#qp-type-manage-btn').addEventListener('click', openTypeManager);
   }
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 5 — OVERFLOW MENU
-     "Quick Relocate" — path only  (same as before)
-     "Relocate with Type" — 2-level: first pick path, then type
+     SECTION 5 — OVERFLOW MENU  (FIX 2: sections removed)
+     The overflow menu is observed but we intentionally add nothing.
      ═══════════════════════════════════════════════════════════════ */
 
-  function augmentOverflowMenu(menu) {
-    if (menu.dataset.qpInjected) return;
-    menu.dataset.qpInjected = '1';
-
-    function findInsertPoint() {
-      for (const fs of menu.querySelectorAll('fieldset.section')) {
-        if (fs.querySelector('legend')?.textContent.trim() === 'Actions') return fs;
-      }
-      return null;
-    }
-
-    function buildSections() {
-      menu.querySelector('.qp-overflow-section')?.remove();
-      menu.querySelector('.qp-overflow-type-section')?.remove();
-
-      const paths = QPS.getAll();
-      const types = CTS.getAll();
-      const ins   = findInsertPoint();
-
-      /* ── Quick Relocate section ────────────────────────────────── */
-      if (paths.length > 0) {
-        const sec = document.createElement('fieldset');
-        sec.className = 'section qp-overflow-section';
-        sec.innerHTML = `<legend class="title">Quick Relocate</legend>`;
-        for (const p of paths) {
-          const btn = document.createElement('button');
-          btn.textContent = p.name; btn.title = p.path;
-          btn.addEventListener('click', () => { moveSelectedTorrents(p.path); document.body.click(); });
-          sec.append(btn);
-        }
-        ins ? menu.insertBefore(sec, ins) : menu.append(sec);
-      }
-
-      /* ── Relocate with Type section ────────────────────────────── */
-      if (paths.length > 0 && types.length > 0) {
-        const sec2 = document.createElement('fieldset');
-        sec2.className = 'section qp-overflow-type-section';
-        sec2.innerHTML = `<legend class="title">Relocate with Type</legend>`;
-
-        // Two-step inline sub-menu:
-        // Step 1: pick path → renders type buttons
-        const step1 = document.createElement('div');
-        step1.className = 'qp-overflow-step';
-        step1.innerHTML = `<span class="qp-step-hint">Pick path:</span>`;
-
-        const step2 = document.createElement('div');
-        step2.className = 'qp-overflow-step qp-hidden';
-        step2.innerHTML = `<span class="qp-step-hint">Pick type:</span>`;
-
-        let chosenPath = null;
-
-        for (const p of paths) {
-          const btn = document.createElement('button');
-          btn.textContent = p.name; btn.title = p.path;
-          btn.addEventListener('click', () => {
-            chosenPath = p;
-            // Highlight selected path
-            step1.querySelectorAll('button').forEach(b => b.classList.remove('qp-selected'));
-            btn.classList.add('qp-selected');
-            // Build type buttons
-            step2.querySelectorAll('button').forEach(b => b.remove());
-            for (const t of CTS.getAll()) {
-              const dest = joinPath(p.path, t.subfolder);
-              const tb = document.createElement('button');
-              tb.textContent = t.name; tb.title = dest;
-              tb.addEventListener('click', () => {
-                moveSelectedTorrents(dest);
-                document.body.click();
-              });
-              step2.append(tb);
-            }
-            // Back button
-            const backBtn = document.createElement('button');
-            backBtn.className = 'qp-back-btn';
-            backBtn.textContent = '← back';
-            backBtn.addEventListener('click', () => {
-              step2.classList.add('qp-hidden');
-              step1.classList.remove('qp-hidden');
-              step1.querySelectorAll('button').forEach(b => b.classList.remove('qp-selected'));
-            });
-            step2.prepend(backBtn);
-            step1.classList.add('qp-hidden');
-            step2.classList.remove('qp-hidden');
-          });
-          step1.append(btn);
-        }
-
-        sec2.append(step1, step2);
-        ins ? menu.insertBefore(sec2, ins) : menu.append(sec2);
-      }
-    }
-
-    buildSections();
-    window.addEventListener('qps:changed', buildSections);
-    window.addEventListener('cts:changed', buildSections);
+  function augmentOverflowMenu(/* menu */) {
+    // Quick Relocate and Relocate with Type sections removed per spec.
+    // The overflow menu is left as the bundle renders it.
   }
+
+
+  /* ═══════════════════════════════════════════════════════════════
+     SECTION 6 — RPC HELPER
+     ═══════════════════════════════════════════════════════════════ */
 
   function moveSelectedTorrents(destPath) {
     if (!destPath) return;
@@ -531,10 +401,9 @@
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 6 — CHIPS ON TORRENT ROWS
-     Purple chip: matched quick path label
-     Teal chip:   matched category type label (subfolder)
-     Clicking either chip activates the corresponding filter.
+     SECTION 7 — CHIPS ON TORRENT ROWS  (FIX 3: solid bg + white text)
+     Purple chip → path label    Teal chip → type label
+     Clicking activates the matching filter.
      ═══════════════════════════════════════════════════════════════ */
 
   function injectChips(el) {
@@ -547,7 +416,6 @@
     const labelsDiv = el.querySelector('.torrent-labels');
     if (!labelsDiv) return;
 
-    // ── Path chip (purple) ─────────────────────────────────────
     const pathMatch = QPS.matchDir(dir);
     if (pathMatch) {
       const chip = document.createElement('span');
@@ -562,7 +430,6 @@
       labelsDiv.append(chip);
     }
 
-    // ── Type chip (teal) ───────────────────────────────────────
     const typeMatch = CTS.matchDir(dir);
     if (typeMatch) {
       const chip = document.createElement('span');
@@ -590,8 +457,8 @@
     if (!list) { setTimeout(initChipObserver, 300); return; }
     refreshAllChips();
     new MutationObserver(muts => {
-      for (const mut of muts)
-        for (const node of mut.addedNodes)
+      for (const { addedNodes } of muts)
+        for (const node of addedNodes)
           if (node instanceof HTMLElement && node.classList.contains('torrent'))
             setTimeout(() => injectChips(node), 60);
     }).observe(list, { childList: true });
@@ -602,15 +469,27 @@
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 7 — FILTER DROPDOWNS IN STATUSBAR
-     "Show:"  — filter by quick path   (purple tint when active)
-     "Type:"  — filter by category type (teal tint when active)
-     Both injected after #filter-tracker.
-     Combined: a torrent must match BOTH active filters to show.
+     SECTION 8 — FILTER DROPDOWNS  (FIX 5: renamed + prefix match)
+     "Path:"  — filter by quick path label  (purple when active)
+     "Type:"  — filter by category type     (teal when active)
+     Combined AND filter. Path uses same prefix logic as matchDir.
      ═══════════════════════════════════════════════════════════════ */
 
   let currentPathFilter = '';
-  let currentTypeFilter = '';  // value = subfolder string
+  let currentTypeFilter = '';
+
+  function pathFilterMatches(dir, filterPath) {
+    if (!filterPath) return true;
+    // Exact match OR dir is inside filterPath/
+    return dir === filterPath || dir.startsWith(filterPath.replace(/\/?$/, '/'));
+  }
+
+  function typeFilterMatches(dir, filterSub) {
+    if (!filterSub) return true;
+    const norm = dir.replace(/\/+$/,'');
+    const sub  = filterSub.replace(/\/+$/,'');
+    return norm === sub || norm.endsWith('/'+sub);
+  }
 
   function applyFilters() {
     const pathSel = document.getElementById('qp-filter-path');
@@ -618,22 +497,13 @@
     currentPathFilter = pathSel?.value || '';
     currentTypeFilter = typeSel?.value || '';
 
-    pathSel?.classList.toggle('qp-active', !!currentPathFilter);
+    pathSel?.classList.toggle('qp-active',      !!currentPathFilter);
     typeSel?.classList.toggle('qp-active-teal', !!currentTypeFilter);
 
     for (const el of document.querySelectorAll('#torrent-list .torrent')) {
-      const dir = getDir(el);
-      let hide  = false;
-
-      if (currentPathFilter && dir !== currentPathFilter) hide = true;
-
-      if (!hide && currentTypeFilter) {
-        // The torrent's dir must end with the type subfolder
-        const norm = dir.replace(/\/+$/,'');
-        const sub  = currentTypeFilter.replace(/\/+$/,'');
-        if (!(norm === sub || norm.endsWith('/'+sub))) hide = true;
-      }
-
+      const dir  = getDir(el);
+      const hide = !pathFilterMatches(dir, currentPathFilter) ||
+                   !typeFilterMatches(dir, currentTypeFilter);
       el.classList.toggle('qp-path-hidden', hide);
     }
   }
@@ -645,10 +515,10 @@
     if (!trackerSel) { setTimeout(initFilterSelects, 300); return; }
     if (document.getElementById('qp-filter-path')) return;
 
-    /* ── Show (path) filter ──────────────────────────────────── */
+    /* ── Path filter (was "Show:", now "Path:") ─────────────── */
     const lblPath = document.createElement('label');
     lblPath.className = 'qp-filter-label'; lblPath.htmlFor = 'qp-filter-path';
-    lblPath.textContent = 'Show:';
+    lblPath.textContent = 'Path:';   // FIX 5: renamed
 
     const selPath = document.createElement('select');
     selPath.id = 'qp-filter-path';
@@ -657,9 +527,8 @@
       const prev = selPath.value;
       while (selPath.options.length) selPath.remove(0);
       selPath.append(Object.assign(document.createElement('option'), { value:'', textContent:'All paths' }));
-      for (const p of QPS.getAll()) {
+      for (const p of QPS.getAll())
         selPath.append(Object.assign(document.createElement('option'), { value:p.path, textContent:p.name, title:p.path }));
-      }
       if (prev) for (const o of selPath.options) { if (o.value===prev) { selPath.value=prev; break; } }
     }
 
@@ -675,9 +544,8 @@
       const prev = selType.value;
       while (selType.options.length) selType.remove(0);
       selType.append(Object.assign(document.createElement('option'), { value:'', textContent:'All types' }));
-      for (const t of CTS.getAll()) {
+      for (const t of CTS.getAll())
         selType.append(Object.assign(document.createElement('option'), { value:t.subfolder, textContent:t.name, title:t.subfolder }));
-      }
       if (prev) for (const o of selType.options) { if (o.value===prev) { selType.value=prev; break; } }
     }
 
@@ -691,14 +559,15 @@
 
     const list = document.getElementById('torrent-list');
     if (list) {
-      new MutationObserver(() => { if (currentPathFilter || currentTypeFilter) applyFilters(); })
-        .observe(list, { childList: true });
+      new MutationObserver(() => {
+        if (currentPathFilter || currentTypeFilter) applyFilters();
+      }).observe(list, { childList: true });
     }
   }
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 8 — GLOBAL BODY OBSERVER
+     SECTION 9 — GLOBAL BODY OBSERVER
      ═══════════════════════════════════════════════════════════════ */
 
   new MutationObserver(muts => {
@@ -712,7 +581,7 @@
 
 
   /* ═══════════════════════════════════════════════════════════════
-     SECTION 9 — SPEED SPARKLINE & DYNAMIC TITLE
+     SECTION 10 — SPEED SPARKLINE & DYNAMIC TITLE
      ═══════════════════════════════════════════════════════════════ */
 
   const POLL_MS = 2000, MAX_POINTS = 30;
@@ -743,26 +612,20 @@
 
   function drawGraph() {
     if (!ctx) return;
-    ctx.clearRect(0, 0, 120, 22);
+    ctx.clearRect(0,0,120,22);
     let maxVal = 10;
-    for (let i=0; i<MAX_POINTS; i++) { if(dnBuf[i]>maxVal)maxVal=dnBuf[i]; if(upBuf[i]>maxVal)maxVal=upBuf[i]; }
+    for (let i=0;i<MAX_POINTS;i++){if(dnBuf[i]>maxVal)maxVal=dnBuf[i];if(upBuf[i]>maxVal)maxVal=upBuf[i];}
     const cs = getComputedStyle(document.documentElement);
     paintSeries(dnBuf, maxVal, cs.getPropertyValue('--blue-100').trim()  || '#51b3f7');
     paintSeries(upBuf, maxVal, cs.getPropertyValue('--green-100').trim() || '#26aa55');
   }
 
   function paintSeries(buf, maxVal, color) {
-    const W=120, H=22, n=MAX_POINTS, PAD=1;
-    const pts = Array.from({length:n}, (_,i) => {
-      const idx=(bufHead+i)%n;
-      return { x:(i/(n-1))*W, y:H-PAD-(buf[idx]/maxVal)*(H-PAD*2) };
-    });
-    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
-    pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
-    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
-    ctx.fillStyle=color+'30'; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
-    pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+    const W=120,H=22,n=MAX_POINTS,PAD=1;
+    const pts = Array.from({length:n},(_,i)=>{ const idx=(bufHead+i)%n; return {x:(i/(n-1))*W,y:H-PAD-(buf[idx]/maxVal)*(H-PAD*2)}; });
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fillStyle=color+'30'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
     ctx.strokeStyle=color+'bb'; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.stroke();
   }
 
