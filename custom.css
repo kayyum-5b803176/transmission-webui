@@ -279,3 +279,96 @@
   padding: 4px 0; text-align: left; width: 100%;
 }
 .qp-overflow-section button:hover { text-decoration: underline; }
+
+
+/* ════════════════════════════════════════════════════════════════
+   PATH-LABEL CHIPS  (.qp-path-chip)
+   Injected into each torrent row's .torrent-labels area.
+   Purple/violet tint to distinguish from Transmission's own
+   blue label pills and from the filter dropdown.
+   ════════════════════════════════════════════════════════════════ */
+
+.qp-path-chip {
+  /* Layout — match the existing .torrent-label pill geometry */
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  /* Spacing */
+  margin: 0 2px;
+  padding: 1px 7px;
+  /* Shape */
+  border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--purple-300, #a78bfa) 45%, transparent);
+  /* Colour — purple/violet tint (both light + dark themes) */
+  background-color: color-mix(in srgb, var(--purple-300, #a78bfa) 14%, transparent);
+  color: color-mix(in srgb, var(--purple-400, #8b5cf6) 90%, var(--color-fg-primary));
+  /* Typography */
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  white-space: nowrap;
+  /* Make it clickable (sets the Show filter) */
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.qp-path-chip:hover {
+  background-color: color-mix(in srgb, var(--purple-300, #a78bfa) 26%, transparent);
+  border-color:     color-mix(in srgb, var(--purple-400, #8b5cf6) 70%, transparent);
+}
+/* Subtle icon prefix */
+.qp-path-chip::before {
+  content: '⌂\00a0';
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   "SHOW" PATH-FILTER DROPDOWN  (#qp-filter-path)
+   Injected into #mainwin-statusbar right after #filter-tracker.
+   Uses the same look as the other statusbar selects.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Label — mirrors the "Tracker:" label style */
+.qp-filter-label {
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Select — inherits the block defined earlier for
+   "#mainwin-statusbar select"; these rules add a subtle
+   highlight so the active filter is noticeable. */
+#qp-filter-path {
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  background: var(--color-bg-primary);
+  color: var(--color-fg-primary);
+  font-size: 13px;
+  padding: 1px 2px;
+  transition: border-color 0.12s ease;
+}
+#qp-filter-path:focus {
+  outline: 2px solid var(--blue-300);
+  outline-offset: -1px;
+}
+/* Highlight when a non-"All paths" option is active */
+#qp-filter-path.qp-active {
+  border-color: color-mix(in srgb, var(--purple-300, #a78bfa) 70%, transparent);
+  color: color-mix(in srgb, var(--purple-400, #8b5cf6) 90%, var(--color-fg-primary));
+  font-weight: 600;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   HIDDEN ROWS  (.qp-path-hidden)
+   Applied by the JS filter; keeps the space tidy by collapsing
+   the row entirely rather than just making it transparent.
+   ════════════════════════════════════════════════════════════════ */
+
+#torrent-list .torrent.qp-path-hidden {
+  display: none !important;
+}
