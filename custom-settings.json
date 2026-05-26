@@ -1,0 +1,26 @@
+{
+  "paths": [
+    {
+      "id": "mpm2ghe2zw979",
+      "name": "archive",
+      "path": "/downloads/archive"
+    },
+    {
+      "id": "mpm2gs50mfzdi",
+      "name": "active",
+      "path": "/downloads/active"
+    }
+  ],
+  "types": [
+    {
+      "id": "mpm2h0twejk05",
+      "name": "movies",
+      "subfolder": "movies"
+    },
+    {
+      "id": "mpm2h77w56ylc",
+      "name": "shows",
+      "subfolder": "shows"
+    }
+  ]
+}
