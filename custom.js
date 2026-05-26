@@ -32,28 +32,84 @@
 
 
   /* ═══════════════════════════════════════════════════════════════
+     SECTION 0 — SETTINGS STORE
+     Fetches custom-settings.json from the web root on load.
+     All data lives in memory for the session.
+     Use ⬇ Export / ⬆ Import in the manage dialogs to share with other users:
+       export → place the file in the same folder as custom.js
+       other users fetch it automatically on next page load.
+     ═══════════════════════════════════════════════════════════════ */
+
+  const SettingsStore = (() => {
+    let _paths = [];
+    let _types = [];
+
+    async function load() {
+      try {
+        const r = await fetch('custom-settings.json', { cache: 'no-store' });
+        if (!r.ok) return;           // file not placed yet — start empty
+        const d = await r.json();
+        if (Array.isArray(d.paths)) _paths = d.paths;
+        if (Array.isArray(d.types)) _types = d.types;
+      } catch { /* absent or malformed — silently start empty */ }
+    }
+
+    function exportJSON() {
+      const blob = new Blob(
+        [JSON.stringify({ paths: _paths, types: _types }, null, 2)],
+        { type: 'application/json' }
+      );
+      const a = Object.assign(document.createElement('a'), {
+        href    : URL.createObjectURL(blob),
+        download: 'custom-settings.json',
+      });
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function importJSON(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = reject;
+        r.onload  = () => {
+          try {
+            const d = JSON.parse(r.result);
+            if (Array.isArray(d.paths)) _paths = d.paths;
+            if (Array.isArray(d.types)) _types = d.types;
+            resolve();
+          } catch (e) { reject(e); }
+        };
+        r.readAsText(file);
+      });
+    }
+
+    return {
+      load,
+      exportJSON,
+      importJSON,
+      getPaths: ()  => _paths,
+      setPaths: (a) => { _paths = a; },
+      getTypes: ()  => _types,
+      setTypes: (a) => { _types = a; },
+    };
+  })();
+
+
+  /* ═══════════════════════════════════════════════════════════════
      SECTION 1 — QUICK PATH STORE
      ═══════════════════════════════════════════════════════════════ */
 
   const QPS = (() => {
-    const KEY = 'tx_quick_paths_v1';
-    function load() {
-      try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
-    }
-    function save(arr) {
-      localStorage.setItem(KEY, JSON.stringify(arr));
-      window.dispatchEvent(new CustomEvent('qps:changed', { detail: arr }));
-    }
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+    function notify(arr) { window.dispatchEvent(new CustomEvent('qps:changed', { detail: arr })); }
     return {
-      getAll:   ()                => load(),
-      add:      (name, path)     => { const a = load(); a.push({ id: uid(), name: name.trim(), path: path.trim() }); save(a); },
-      update:   (id, name, path) => { save(load().map(e => e.id===id ? { id, name: name.trim(), path: path.trim() } : e)); },
-      remove:   (id)             => { save(load().filter(e => e.id!==id)); },
-      /** Exact match first, then prefix match (dir starts with path+'/') */
+      getAll:   ()                => SettingsStore.getPaths(),
+      add:      (name, path)     => { const a = SettingsStore.getPaths().slice(); a.push({ id: uid(), name: name.trim(), path: path.trim() }); SettingsStore.setPaths(a); notify(a); },
+      update:   (id, name, path) => { const a = SettingsStore.getPaths().map(e => e.id===id ? { id, name: name.trim(), path: path.trim() } : e); SettingsStore.setPaths(a); notify(a); },
+      remove:   (id)             => { const a = SettingsStore.getPaths().filter(e => e.id!==id); SettingsStore.setPaths(a); notify(a); },
       matchDir: (dir) => {
         if (!dir) return null;
-        const all = load();
+        const all = SettingsStore.getPaths();
         return all.find(p => p.path === dir) ||
                all.find(p => dir.startsWith(p.path.replace(/\/?$/,'/'))) ||
                null;
@@ -67,25 +123,17 @@
      ═══════════════════════════════════════════════════════════════ */
 
   const CTS = (() => {
-    const KEY = 'tx_category_types_v1';
-    function load() {
-      try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
-    }
-    function save(arr) {
-      localStorage.setItem(KEY, JSON.stringify(arr));
-      window.dispatchEvent(new CustomEvent('cts:changed', { detail: arr }));
-    }
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+    function notify(arr) { window.dispatchEvent(new CustomEvent('cts:changed', { detail: arr })); }
     return {
-      getAll:   ()                    => load(),
-      add:      (name, sub)           => { const a = load(); a.push({ id: uid(), name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') }); save(a); },
-      update:   (id, name, sub)       => { save(load().map(e => e.id===id ? { id, name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') } : e)); },
-      remove:   (id)                  => { save(load().filter(e => e.id!==id)); },
-      /** Match dir's last segment(s) against known subfolders */
+      getAll:   ()                    => SettingsStore.getTypes(),
+      add:      (name, sub)           => { const a = SettingsStore.getTypes().slice(); a.push({ id: uid(), name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') }); SettingsStore.setTypes(a); notify(a); },
+      update:   (id, name, sub)       => { const a = SettingsStore.getTypes().map(e => e.id===id ? { id, name: name.trim(), subfolder: sub.trim().replace(/^\/+|\/+$/g,'') } : e); SettingsStore.setTypes(a); notify(a); },
+      remove:   (id)                  => { const a = SettingsStore.getTypes().filter(e => e.id!==id); SettingsStore.setTypes(a); notify(a); },
       matchDir: (dir) => {
         if (!dir) return null;
         const norm = dir.replace(/\/+$/,'');
-        return CTS.getAll().find(t => {
+        return SettingsStore.getTypes().find(t => {
           const sub = t.subfolder.replace(/\/+$/,'');
           return norm === sub || norm.endsWith('/'+sub);
         }) || null;
@@ -128,6 +176,12 @@
               id="qp-new-col2" placeholder="${escHtml(config.col2Placeholder)}" />
             <button class="qp-btn qp-btn-primary" id="qp-add-btn">Add</button>
           </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 15%,transparent)">
+          <span style="font-size:11px;opacity:.6;align-self:center;margin-right:auto">Place exported file next to custom.js so all users load it on refresh.</span>
+          <button class="qp-btn qp-btn-sm" id="qp-export-btn">⬇️ Export JSON</button>
+          <button class="qp-btn qp-btn-sm" id="qp-import-btn">⬆️ Import JSON</button>
+          <input type="file" id="qp-import-input" accept=".json" style="display:none">
         </div>
       </div>`;
 
@@ -209,6 +263,20 @@
     const cleanup = () => window.removeEventListener(config.eventName, renderList);
     dlg.querySelector('#qp-close-btn').addEventListener('click', () => { cleanup(); dlg.close(); dlg.remove(); });
     dlg.addEventListener('click', e => { if (e.target===dlg) { cleanup(); dlg.close(); dlg.remove(); } });
+    dlg.querySelector('#qp-export-btn').addEventListener('click', () => SettingsStore.exportJSON());
+
+    const importInput = dlg.querySelector('#qp-import-input');
+    dlg.querySelector('#qp-import-btn').addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', async () => {
+      if (!importInput.files[0]) return;
+      try {
+        await SettingsStore.importJSON(importInput.files[0]);
+        window.dispatchEvent(new CustomEvent('qps:changed'));
+        window.dispatchEvent(new CustomEvent('cts:changed'));
+      } catch { shake(dlg.querySelector('#qp-import-btn')); }
+      importInput.value = '';
+    });
+
     dlg.showModal();
     nameEl.focus();
   }
@@ -656,6 +724,11 @@
     initFilterSelects();
     setInterval(poll, POLL_MS);
     poll();
+    // Kick off async server load; fires qps:changed + cts:changed when done.
+    SettingsStore.load().then(() => {
+      window.dispatchEvent(new CustomEvent('qps:changed'));
+      window.dispatchEvent(new CustomEvent('cts:changed'));
+    });
   }
 
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
