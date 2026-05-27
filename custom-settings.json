@@ -6,9 +6,19 @@
       "path": "/downloads/archive"
     },
     {
-      "id": "mpm2gs50mfzdi",
+      "id": "mpm6oxkggnkw5",
       "name": "active",
       "path": "/downloads/active"
+    },
+    {
+      "id": "mpm6pq136ob65",
+      "name": "exclude",
+      "path": "/downloads/exclude"
+    },
+    {
+      "id": "mpm9g8enp0s6e",
+      "name": "complete",
+      "path": "/downloads/complete"
     }
   ],
   "types": [

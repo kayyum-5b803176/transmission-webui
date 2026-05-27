@@ -36,8 +36,8 @@
      Fetches custom-settings.json from the web root on load.
      All data lives in memory for the session.
      Use ⬇ Export / ⬆ Import in the manage dialogs to share with other users:
-       export → place the file in the same folder as custom.js
-       other users fetch it automatically on next page load.
+       export → place the file in the same folder as custom.js on the server
+       other users get it automatically on next page load.
      ═══════════════════════════════════════════════════════════════ */
 
   const SettingsStore = (() => {
@@ -178,7 +178,7 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 15%,transparent)">
-          <span style="font-size:11px;opacity:.6;align-self:center;margin-right:auto">Place exported file next to custom.js so all users load it on refresh.</span>
+          <span style="font-size:11px;opacity:.55;align-self:center;margin-right:auto">Drop exported file next to custom.js — all users load it on refresh.</span>
           <button class="qp-btn qp-btn-sm" id="qp-export-btn">⬇️ Export JSON</button>
           <button class="qp-btn qp-btn-sm" id="qp-import-btn">⬆️ Import JSON</button>
           <input type="file" id="qp-import-input" accept=".json" style="display:none">
@@ -475,42 +475,39 @@
      ═══════════════════════════════════════════════════════════════ */
 
   function injectChips(el) {
-    el.querySelector('.qp-path-chip')?.remove();
-    el.querySelector('.qp-type-chip')?.remove();
-
-    const dir = getDir(el);
-    if (!dir) return;
-
+    const dir      = getDir(el);
     const labelsDiv = el.querySelector('.torrent-labels');
     if (!labelsDiv) return;
 
-    const pathMatch = QPS.matchDir(dir);
-    if (pathMatch) {
+    /**
+     * Idempotent chip sync: only removes + re-creates the chip when the
+     * visible label has actually changed.  If the chip already shows the
+     * right label we touch nothing — eliminating flicker on every
+     * Transmission UI refresh (progress, speed, etc.).
+     */
+    function syncChip(cls, match, labelKey, titleKey, filterId, filterKey) {
+      const existing = labelsDiv.querySelector('.' + cls);
+      if (!match) { existing?.remove(); return; }
+      const label = match[labelKey];
+      if (existing?.textContent === label) return;  // already correct — skip
+      existing?.remove();
       const chip = document.createElement('span');
-      chip.className   = 'qp-path-chip';
-      chip.textContent = pathMatch.name;
-      chip.title       = pathMatch.path;
+      chip.className   = cls;
+      chip.textContent = label;
+      chip.title       = match[titleKey];
       chip.addEventListener('click', e => {
         e.stopPropagation();
-        const sel = document.getElementById('qp-filter-path');
-        if (sel) { sel.value = pathMatch.path; sel.dispatchEvent(new Event('change')); }
+        const sel = document.getElementById(filterId);
+        if (sel) { sel.value = match[filterKey]; sel.dispatchEvent(new Event('change')); }
       });
       labelsDiv.append(chip);
     }
 
-    const typeMatch = CTS.matchDir(dir);
-    if (typeMatch) {
-      const chip = document.createElement('span');
-      chip.className   = 'qp-type-chip';
-      chip.textContent = typeMatch.name;
-      chip.title       = typeMatch.subfolder;
-      chip.addEventListener('click', e => {
-        e.stopPropagation();
-        const sel = document.getElementById('qp-filter-type');
-        if (sel) { sel.value = typeMatch.subfolder; sel.dispatchEvent(new Event('change')); }
-      });
-      labelsDiv.append(chip);
-    }
+    const pathMatch = dir ? QPS.matchDir(dir) : null;
+    syncChip('qp-path-chip', pathMatch, 'name', 'path',      'qp-filter-path', 'path');
+
+    const typeMatch = dir ? CTS.matchDir(dir) : null;
+    syncChip('qp-type-chip', typeMatch, 'name', 'subfolder', 'qp-filter-type', 'subfolder');
   }
 
   function refreshAllChips() {
@@ -523,14 +520,46 @@
   function initChipObserver() {
     const list = document.getElementById('torrent-list');
     if (!list) { setTimeout(initChipObserver, 300); return; }
+
+    /**
+     * Poll for el.row (set by Transmission after the element is added),
+     * then inject.  Tries every 30 ms, gives up after 150 ms.
+     */
+    function injectWhenReady(el, tries) {
+      if (el.row) { injectChips(el); return; }
+      if (tries > 0) setTimeout(() => injectWhenReady(el, tries - 1), 30);
+    }
+
+    /** Debounce per row (one animation frame) to batch rapid mutations. */
+    function scheduleInject(el) {
+      clearTimeout(el._chipTimer);
+      el._chipTimer = setTimeout(() => injectWhenReady(el, 5), 16);
+    }
+
     refreshAllChips();
+
     new MutationObserver(muts => {
-      for (const { addedNodes } of muts)
-        for (const node of addedNodes)
+      for (const mut of muts) {
+        // New torrent row added to the list.
+        for (const node of mut.addedNodes) {
           if (node instanceof HTMLElement && node.classList.contains('torrent'))
-            setTimeout(() => injectChips(node), 60);
-    }).observe(list, { childList: true });
-    setInterval(refreshAllChips, 8000);
+            scheduleInject(node);
+        }
+        // One of our chips was removed from inside a row (Transmission
+        // rebuilt the row’s label area during a progress/speed refresh).
+        // Re-inject into the parent row immediately.
+        for (const node of mut.removedNodes) {
+          if (node instanceof HTMLElement &&
+              (node.classList.contains('qp-path-chip') ||
+               node.classList.contains('qp-type-chip'))) {
+            const row = mut.target.closest?.('.torrent');
+            if (row) scheduleInject(row);
+          }
+        }
+      }
+    }).observe(list, { childList: true, subtree: true });
+
+    setInterval(refreshAllChips, 30_000);   // safety-net only
     window.addEventListener('qps:changed', refreshAllChips);
     window.addEventListener('cts:changed', refreshAllChips);
   }
@@ -724,7 +753,6 @@
     initFilterSelects();
     setInterval(poll, POLL_MS);
     poll();
-    // Kick off async server load; fires qps:changed + cts:changed when done.
     SettingsStore.load().then(() => {
       window.dispatchEvent(new CustomEvent('qps:changed'));
       window.dispatchEvent(new CustomEvent('cts:changed'));
